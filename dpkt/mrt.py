@@ -49,6 +49,14 @@ class MRTHeader(dpkt.Packet):
         ('len', 'I', 0)
     )
 
+class MRTHeader_ET(dpkt.Packet):
+    __hdr__ = (
+        ('ts', 'I', 0),
+        ('type', 'H', 0),
+        ('subtype', 'H', 0),
+        ('len', 'I', 0),
+        ('usec', 'I', 0)
+    )
 
 class TableDump(dpkt.Packet):
     __hdr__ = (
@@ -74,16 +82,44 @@ class TableDump(dpkt.Packet):
             l.append(attr)
         self.attributes = l
 
+class _IPv4Addresses(dpkt.Packet):
+  __hdr__ = (
+      ('src_ip', '4s', b'\x00'*4),
+      ('dst_ip', '4s', b'\x00'*4)
+  )
+
+  def unpack(self, buf):
+      dpkt.Packet.unpack(self, buf)
+
+class _IPv6Addresses(dpkt.Packet):
+  __hdr__ = (
+      ('src_ip', '16s', b'\x00'*16),
+      ('dst_ip', '16s', b'\x00'*16)
+  )
+
+  def unpack(self, buf):
+      dpkt.Packet.unpack(self, buf)
 
 class BGP4MPMessage(dpkt.Packet):
     __hdr__ = (
         ('src_as', 'H', 0),
         ('dst_as', 'H', 0),
         ('intf', 'H', 0),
-        ('family', 'H', AFI_IPv4),
-        ('src_ip', 'I', 0),
-        ('dst_ip', 'I', 0)
+        ('family', 'H', AFI_IPv4)
     )
+
+    def unpack(self, buf):
+        dpkt.Packet.unpack(self, buf)
+        if self.family == AFI_IPv4:
+          self.sub_fields = self._IPv4Addresses(buf)
+        elif self.family == AFI_IPv6:
+          self.sub_fields = self._IPv6Addresses(buf)
+
+        self.src_ip = self.sub_fields.src_ip
+        self.dst_ip = self.sub_fields.dst_ip
+        del self.sub_fields
+
+
 
 
 class BGP4MPMessage_32(dpkt.Packet):
@@ -91,7 +127,18 @@ class BGP4MPMessage_32(dpkt.Packet):
         ('src_as', 'I', 0),
         ('dst_as', 'I', 0),
         ('intf', 'H', 0),
-        ('family', 'H', AFI_IPv4),
-        ('src_ip', 'I', 0),
-        ('dst_ip', 'I', 0)
+        ('family', 'H', AFI_IPv4)
     )
+
+    def unpack(self, buf):
+        dpkt.Packet.unpack(self, buf)
+        if self.family == AFI_IPv4:
+          self.sub_fields = _IPv4Addresses(buf)
+          self.data = self.data[self._IPv4Addresses.__hdr_len__:]
+        elif self.family == AFI_IPv6:
+          self.sub_fields = _IPv6Addresses(buf)
+          self.data = self.data[self._IPv6Addresses.__hdr_len__:]
+
+        self.src_ip = self.sub_fields.src_ip
+        self.dst_ip = self.sub_fields.dst_ip
+        del self.sub_fields
