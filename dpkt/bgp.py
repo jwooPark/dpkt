@@ -376,7 +376,7 @@ class BGP(dpkt.Packet):
                 def unpack(self, buf):
                     self.data = buf
                     l = []
-                    as4 = len(self.data) == 6
+                    as4 = len(self.data) >= (self.data[1] * 4 + 2)
                     while self.data:
                         if as4:
                             seg = self.ASPathSegment4(self.data)
@@ -443,7 +443,7 @@ class BGP(dpkt.Packet):
 
             class NextHop(dpkt.Packet):
                 __hdr__ = (
-                    ('ip', 'I', 0),
+                    ('ip', '4s', b'\x00'*4),
                 )
 
             class MultiExitDisc(dpkt.Packet):
@@ -469,7 +469,7 @@ class BGP(dpkt.Packet):
             class Aggregator(dpkt.Packet):
                 __hdr__ = (
                     ('asn', 'H', 0),
-                    ('ip', 'I', 0)
+                    ('ip', '4s', b'\x00'*4)
                 )
 
             class Communities(dpkt.Packet):
@@ -692,7 +692,10 @@ class RouteIPV4(dpkt.Packet):
         self.data = self.prefix = tmp
 
     def __repr__(self):
-        cidr = '%s/%d' % (socket.inet_ntoa(self.prefix), self.len)
+        cidr = '%s/%d' % (
+            dpkt.socket.inet_ntop(dpkt.socket.AF_INET, self.prefix),
+            self.len
+            )
         return '%s(%s)' % (self.__class__.__name__, cidr)
 
     def __len__(self):
@@ -729,6 +732,12 @@ class RouteIPV6(dpkt.Packet):
     def __bytes__(self):
         return self.pack_hdr() + self.prefix[:(self.len + 7) // 8]
 
+    def __repr__(self):
+        cidr = '%s/%d' % (
+            dpkt.socket.inet_ntop(dpkt.socket.AF_INET6, self.prefix),
+            self.len
+            )
+        return '%s(%s)' % (self.__class__.__name__, cidr)
 
 class RouteEVPN(dpkt.Packet):
     __hdr__ = (
