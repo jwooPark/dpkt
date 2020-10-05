@@ -10,24 +10,26 @@ from . import bgp
 # http://www.ietf.org/internet-drafts/draft-ietf-grow-mrt-03.txt
 
 # MRT Types
-NULL = 0
-START = 1
-DIE = 2
-I_AM_DEAD = 3
-PEER_DOWN = 4
-BGP = 5  # Deprecated by BGP4MP
-RIP = 6
-IDRP = 7
-RIPNG = 8
-BGP4PLUS = 9  # Deprecated by BGP4MP
-BGP4PLUS_01 = 10  # Deprecated by BGP4MP
-OSPF = 11
-TABLE_DUMP = 12
-BGP4MP = 16
-BGP4MP_ET = 17
-ISIS = 32
-ISIS_ET = 33
-OSPF_ET = 64
+NULL          = 0   # Deprecated (RFC6396)
+START         = 1   # Deprecated (RFC6396)
+DIE           = 2   # Deprecated (RFC6396)
+I_AM_DEAD     = 3   # Deprecated (RFC6396)
+PEER_DOWN     = 4   # Deprecated (RFC6396)
+BGP           = 5   # Deprecated by BGP4MP
+RIP           = 6   # Deprecated (RFC6396)
+IDRP          = 7   # Deprecated (RFC6396)
+RIPNG         = 8   # Deprecated (RFC6396)
+BGP4PLUS      = 9   # Deprecated by BGP4MP
+BGP4PLUS_01   = 10  # Deprecated by BGP4MP
+OSPFv2        = 11
+TABLE_DUMP    = 12
+TABLE_DUMP_V2 = 13
+BGP4MP        = 16
+BGP4MP_ET     = 17
+ISIS          = 32
+ISIS_ET       = 33
+OSPFv3        = 48
+OSPFv3_ET     = 49
 
 # BGP4MP Subtypes
 BGP4MP_STATE_CHANGE = 0
@@ -82,23 +84,27 @@ class TableDump(dpkt.Packet):
             l.append(attr)
         self.attributes = l
 
-class _IPv4Addresses(dpkt.Packet):
-  __hdr__ = (
-      ('src_ip', '4s', b'\x00'*4),
-      ('dst_ip', '4s', b'\x00'*4)
-  )
+## TODO, for TABLE_DUMP_V2(13)
+class TableDump_V2(dpkt.Packet):
+    pass
 
-  def unpack(self, buf):
-      dpkt.Packet.unpack(self, buf)
+class _IPv4Addresses(dpkt.Packet):
+    __hdr__ = (
+        ('src_ip', '4s', b'\x00'*4),
+        ('dst_ip', '4s', b'\x00'*4)
+    )
+
+    def unpack(self, buf):
+        dpkt.Packet.unpack(self, buf)
 
 class _IPv6Addresses(dpkt.Packet):
-  __hdr__ = (
-      ('src_ip', '16s', b'\x00'*16),
-      ('dst_ip', '16s', b'\x00'*16)
-  )
+    __hdr__ = (
+        ('src_ip', '16s', b'\x00'*16),
+        ('dst_ip', '16s', b'\x00'*16)
+    )
 
-  def unpack(self, buf):
-      dpkt.Packet.unpack(self, buf)
+    def unpack(self, buf):
+        dpkt.Packet.unpack(self, buf)
 
 class BGP4MPMessage(dpkt.Packet):
     __hdr__ = (
@@ -120,9 +126,6 @@ class BGP4MPMessage(dpkt.Packet):
         self.data   = self.sub_fields.data
         del self.sub_fields
 
-
-
-
 class BGP4MPMessage_32(dpkt.Packet):
     __hdr__ = (
         ('src_as', 'I', 0),
@@ -142,3 +145,5 @@ class BGP4MPMessage_32(dpkt.Packet):
         self.dst_ip = self.sub_fields.dst_ip
         self.data   = self.sub_fields.data
         del self.sub_fields
+
+
