@@ -111,12 +111,13 @@ class BGP4MPMessage(dpkt.Packet):
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
         if self.family == AFI_IPv4:
-          self.sub_fields = self._IPv4Addresses(buf)
+          self.sub_fields = self._IPv4Addresses(self.data)
         elif self.family == AFI_IPv6:
-          self.sub_fields = self._IPv6Addresses(buf)
+          self.sub_fields = self._IPv6Addresses(self.data)
 
         self.src_ip = self.sub_fields.src_ip
         self.dst_ip = self.sub_fields.dst_ip
+        self.data   = self.sub_fields.data
         del self.sub_fields
 
 
@@ -133,12 +134,11 @@ class BGP4MPMessage_32(dpkt.Packet):
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
         if self.family == AFI_IPv4:
-          self.sub_fields = _IPv4Addresses(buf)
-          self.data = self.data[self._IPv4Addresses.__hdr_len__:]
+          self.sub_fields = _IPv4Addresses(self.data)
         elif self.family == AFI_IPv6:
-          self.sub_fields = _IPv6Addresses(buf)
-          self.data = self.data[self._IPv6Addresses.__hdr_len__:]
+          self.sub_fields = _IPv6Addresses(self.data)
 
         self.src_ip = self.sub_fields.src_ip
         self.dst_ip = self.sub_fields.dst_ip
+        self.data   = self.sub_fields.data
         del self.sub_fields
