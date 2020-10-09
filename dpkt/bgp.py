@@ -236,7 +236,10 @@ class BGP(dpkt.Packet):
             self.data = self.data[2:]
             l = []
             while wlen > 0:
-                route = RouteIPV4(self.data)
+                if is_addpath_prefix4(self.data):   ## guessing if BGP peer speaks ADD-PATH
+                    route = ExtendedRouteIPV4(self.data)
+                else:
+                    route = RouteIPV4(self.data)
                 self.data = self.data[len(route):]
                 wlen -= len(route)
                 l.append(route)
