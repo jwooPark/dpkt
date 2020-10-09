@@ -57,6 +57,7 @@ from . import radiotap
 from . import radius
 from . import rfb
 from . import rip
+from . import routeview
 from . import rpc
 from . import rtp
 from . import rx

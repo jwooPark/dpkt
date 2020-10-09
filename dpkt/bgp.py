@@ -43,6 +43,8 @@ ORIGINATOR_ID = 9
 CLUSTER_LIST = 10
 MP_REACH_NLRI = 14
 MP_UNREACH_NLRI = 15
+AS4_PATH = 17           # RFC6793
+AS4_AGGREGATOR = 18     # RFC6793
 
 # Origin Types
 ORIGIN_IGP = 0
@@ -254,7 +256,7 @@ class BGP(dpkt.Packet):
             # Announced Routes
             l = []
             while self.data:
-                if len(self.data) % 9 == 0:
+                if is_addpath_prefix4(self.data):   ## guessing if BGP peer speaks ADD-PATH
                     route = ExtendedRouteIPV4(self.data)
                 else:
                     route = RouteIPV4(self.data)
@@ -348,6 +350,8 @@ class BGP(dpkt.Packet):
                     self.data = self.mp_reach_nlri = self.MPReachNLRI(self.data)
                 elif self.type == MP_UNREACH_NLRI:
                     self.data = self.mp_unreach_nlri = self.MPUnreachNLRI(self.data)
+                elif self.type == AS4_PATH:
+                    self.data = self.as4_path = self.AS4Path(self.data)
 
             def __len__(self):
                 if self.extended_length:
@@ -440,6 +444,17 @@ class BGP(dpkt.Packet):
                         for AS in self.path:
                             as_str += struct.pack('>I', AS)
                         return self.pack_hdr() + as_str
+
+            class AS4Path(ASPath):
+
+                def unpack(self, buf):
+                    self.data = buf
+                    l = []
+                    while self.data:
+                        seg = self.ASPathSegment4(self.data)
+                        self.data = self.data[len(seg):]
+                        l.append(seg)
+                    self.data = self.segments = l
 
             class NextHop(dpkt.Packet):
                 __hdr__ = (
@@ -704,14 +719,18 @@ class RouteIPV4(dpkt.Packet):
     def __bytes__(self):
         return self.pack_hdr() + self.prefix[:(self.len + 7) // 8]
 
-class ExtendedRouteIPV4(RouteIPV4):
+class ExtendedRouteIPV4(RouteIPV4):   # Path Identifier, RFC7911 3. Extended NLRI Encodings
     __hdr__ = (
         ('path_id', 'I', 0),
         ('len', 'B', 0),
     )
 
     def __repr__(self):
-        cidr = '%s/%d PathId %d' % (socket.inet_ntoa(self.prefix), self.len, self.path_id)
+        cidr = '%s/%d PathId %d' % (
+            dpkt.socket.inet_ntop(dpkt.socket.AF_INET, self.prefix),
+            self.len,
+            self.path_id
+            )
         return '%s(%s)' % (self.__class__.__name__, cidr)
 
 
@@ -795,6 +814,47 @@ class RouteEVPN(dpkt.Packet):
 
     def __bytes__(self):
         return self.pack_hdr() + self.route_data
+
+
+def is_addpath_prefix4(data):
+    # Guessing if this BGP speaker speaks ADD-PATH
+    # ref., https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-bgp.c#L2640
+
+    # check if Extended NLRI IPv4 Prefix format
+    buf_ = data
+    while buf_:
+        if len(buf_) <= 4:
+            return False
+        len_pfx = buf_[4]
+        len_oct = (len_pfx + 7) // 8
+        buf_    = buf_[5:]
+        if len_pfx == 0:  # case 0.0.0.0/0
+            continue
+        if (len_pfx > 32) or (len(buf_) < len_oct):
+            return False
+        bit_mask = (0xff >> (len_pfx % 8)) if (len_pfx % 8) else 0
+        if ((buf_[len_oct-1] & bit_mask) != 0):
+            return False
+        buf_ = buf_[len_oct:]
+
+    # if NOT suitable for RFC4271 NLRI IPv4 Prefix format?
+    buf_ = data
+    while buf_:
+        len_pfx = buf_[0]
+        len_oct = (len_pfx + 7) // 8
+        buf_   = buf_[1:]
+        if len_pfx == 0:  # case 0.0.0.0/0
+            continue
+        bit_mask = (0xff >> (len_pfx % 8)) if (len_pfx % 8) else 0
+        if (
+            (len_pfx <= 32) and
+            (len(buf_) >= len_oct) and
+            ((buf_[len_oct-1] & bit_mask) == 0)
+            ):
+            return False
+        buf_ = buf_[len_oct:]
+
+    return True
 
 
 __bgp1 = b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'

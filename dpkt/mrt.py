@@ -117,9 +117,9 @@ class BGP4MPMessage(dpkt.Packet):
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
         if self.family == AFI_IPv4:
-          self.sub_fields = self._IPv4Addresses(self.data)
+          self.sub_fields = _IPv4Addresses(self.data)
         elif self.family == AFI_IPv6:
-          self.sub_fields = self._IPv6Addresses(self.data)
+          self.sub_fields = _IPv6Addresses(self.data)
 
         self.src_ip = self.sub_fields.src_ip
         self.dst_ip = self.sub_fields.dst_ip
